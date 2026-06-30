@@ -84,6 +84,13 @@ export type ReviewerLoadRow = {
   prCount: number;
 };
 
+export type NoiseBreakdown = {
+  valid: number;
+  spamAi: number;
+  other: number;
+  total: number;
+};
+
 export type PromotionEligibleRow = {
   githubHandle: string;
   xp: number;

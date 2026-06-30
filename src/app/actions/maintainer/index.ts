@@ -26,6 +26,7 @@ export {
   getMaintainerAnalyticsTrends,
   exportPrQueueCsv,
   getReviewerLoad,
+  getNoiseBreakdown,
   getPromotionEligible,
 } from './analytics';
 
