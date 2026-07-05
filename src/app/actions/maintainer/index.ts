@@ -16,14 +16,19 @@ export {
   refreshMaintainerBackfill,
   getPrCiStatus,
   closePullRequest,
+  getPrActivityTimeline,
+  getPrDetails,
   getMaintainerPrById,
   requestChanges,
   mergePullRequest,
 } from './queue';
 
 export { getCommunityLinks, upsertCommunityLink, deleteCommunityLink } from './community';
-export { getContributorsList, type ContributorListRow } from './contributors';
-
+export {
+  getContributorsList,
+  removeContributorFromOrg,
+  type ContributorListRow,
+} from './contributors';
 export {
   getRepoHealthOverview,
   getStaleIssues,
@@ -36,3 +41,4 @@ export {
 } from './analytics';
 
 export { getFlaggedAccounts, resolveFlaggedAccount } from './flagged-accounts';
+export { previewMergeXp, type XpPreviewBreakdown } from './xp-preview';
