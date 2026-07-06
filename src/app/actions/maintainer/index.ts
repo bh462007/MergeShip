@@ -16,6 +16,7 @@ export {
   refreshMaintainerBackfill,
   getPrCiStatus,
   closePullRequest,
+  getPrDiff,
   getPrActivityTimeline,
   getPrDetails,
   getMaintainerPrById,
