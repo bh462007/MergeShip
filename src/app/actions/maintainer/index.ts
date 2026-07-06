@@ -29,6 +29,8 @@ export {
   getContributorsList,
   removeContributorFromOrg,
   type ContributorListRow,
+  getContributorStats,
+  type ContributorStats,
 } from './contributors';
 export {
   getRepoHealthOverview,
