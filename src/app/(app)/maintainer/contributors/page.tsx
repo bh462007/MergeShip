@@ -13,6 +13,7 @@ import { isOk } from '@/lib/result';
 import { ContributorsTable } from './contributors-table';
 
 import { LevelDistributionPanel } from './level-distribution-panel';
+import ExportContributorsButton from './export-contributors-button';
 import { StatsBar } from './stats-bar';
 import { PendingInvitesPanel } from './pending-invites-panel';
 
@@ -59,11 +60,17 @@ export default async function ContributorsPage({
   return (
     <div className="min-h-screen bg-zinc-950 px-6 py-12 text-white">
       <div className="mx-auto max-w-6xl">
-        <h1 className="font-display text-3xl font-bold">Contributors</h1>
-        <p className="mt-2 text-sm text-zinc-400">
-          Contributors active across <span className="text-zinc-300">{install.accountLogin}</span>{' '}
-          repos.
-        </p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="font-display text-3xl font-bold">Contributors</h1>
+            <p className="mt-2 text-sm text-zinc-400">
+              Contributors active across{' '}
+              <span className="text-zinc-300">{install.accountLogin}</span> repos.
+            </p>
+          </div>
+          <ExportContributorsButton installationId={installId} />
+        </div>
+
         <StatsBar stats={stats} />
         <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-4">
           <div className="lg:col-span-3">

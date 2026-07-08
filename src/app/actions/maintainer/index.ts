@@ -27,6 +27,7 @@ export {
 export { getCommunityLinks, upsertCommunityLink, deleteCommunityLink } from './community';
 export {
   getContributorsList,
+  exportContributorsCsv,
   removeContributorFromOrg,
   type ContributorListRow,
   getContributorStats,
