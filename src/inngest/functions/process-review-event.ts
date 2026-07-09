@@ -108,7 +108,7 @@ export const processReviewEvent = inngest.createFunction(
 
       const { data: helpReq } = await sb
         .from('help_requests')
-        .select('id, user_id, created_at')
+        .select('id, user_id, created_at, status')
         .eq('pr_url', payload.pull_request.html_url)
         .eq('status', 'open')
         .maybeSingle();
@@ -131,13 +131,15 @@ export const processReviewEvent = inngest.createFunction(
       const isFast = responseMs <= SPEED_BONUS_HOURS * 3600 * 1000;
       if (isFast) xp += XP_REWARDS.HELP_REVIEW_SPEED_BONUS;
 
+      const refId = refIds.helpReview(helpReq.id, payload.review.user.login);
+
       let inserted = false;
       try {
         inserted = await insertXpEvent({
           userId: reviewer.id,
           source: XP_SOURCE.HELP_REVIEW,
           refType: 'review',
-          refId: refIds.helpReview(helpReq.id, payload.review.user.login),
+          refId,
           repo: payload.pull_request.base.repo.full_name,
           xpDelta: xp,
           metadata: { isMentor, isFast, menteeLevel },
@@ -153,16 +155,14 @@ export const processReviewEvent = inngest.createFunction(
         throw err;
       }
 
-      if (inserted) {
-        await sb
-          .from('help_requests')
-          .update({
-            status: 'resolved',
-            resolved_by: reviewer.id,
-            resolved_at: new Date().toISOString(),
-          })
-          .eq('id', helpReq.id);
-      }
+      await sb
+        .from('help_requests')
+        .update({
+          status: 'resolved',
+          resolved_by: reviewer.id,
+          resolved_at: new Date().toISOString(),
+        })
+        .eq('id', helpReq.id);
 
       return { xpAwarded: inserted ? xp : 0, isMentor, isFast };
     });
