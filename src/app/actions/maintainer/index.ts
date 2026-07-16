@@ -122,6 +122,12 @@ export async function requestChanges(
   return queueActions.requestChanges(...args);
 }
 
+export async function postPrComment(
+  ...args: Parameters<typeof queueActions.postPrComment>
+): ReturnType<typeof queueActions.postPrComment> {
+  return queueActions.postPrComment(...args);
+}
+
 export async function mergePullRequest(
   ...args: Parameters<typeof queueActions.mergePullRequest>
 ): ReturnType<typeof queueActions.mergePullRequest> {
