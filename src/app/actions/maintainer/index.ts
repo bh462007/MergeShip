@@ -1,5 +1,5 @@
 export type * from './types';
-export type { StalePrRow } from './analytics';
+export type { StalePrRow, AiDetectionBreakdown } from './analytics';
 export type { ContributorListRow, ContributorStats } from './contributors';
 export type { FailedWebhookEventRow } from './failed-events';
 export type { XpPreviewBreakdown } from './xp-preview';
@@ -206,6 +206,12 @@ export async function getPromotionEligible(
   ...args: Parameters<typeof analyticsActions.getPromotionEligible>
 ): ReturnType<typeof analyticsActions.getPromotionEligible> {
   return analyticsActions.getPromotionEligible(...args);
+}
+
+export async function getAiDetectionBreakdown(
+  ...args: Parameters<typeof analyticsActions.getAiDetectionBreakdown>
+): ReturnType<typeof analyticsActions.getAiDetectionBreakdown> {
+  return analyticsActions.getAiDetectionBreakdown(...args);
 }
 
 export async function getTimeSaved(
