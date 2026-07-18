@@ -1,24 +1,26 @@
-'use server';
-import { requireMaintainerAuth } from '@/lib/action-auth';
-import { getServiceSupabase } from '@/lib/supabase/service';
-import { getInstallOctokit } from '@/lib/github/app';
-import { ok, err, type Result } from '@/lib/result';
-import * as settingsActions from './settings';
-import * as queueActions from './queue';
-import * as communityActions from './community';
-import * as analyticsActions from './analytics';
-import * as flaggedAccountsActions from './flagged-accounts';
-import * as contributorsActions from './contributors';
-import * as failedEventsActions from './failed-events';
-import * as xpPreviewActions from './xp-preview';
-import * as invitesActions from './invites';
-
 export type * from './types';
 export type { StalePrRow } from './analytics';
 export type { ContributorListRow, ContributorStats } from './contributors';
 export type { FailedWebhookEventRow } from './failed-events';
 export type { XpPreviewBreakdown } from './xp-preview';
 export type { InviteRow } from './invites';
+
+import * as settingsActions from './settings';
+import * as queueActions from './queue';
+import * as communityActions from './community';
+import * as analyticsActions from './analytics';
+import * as flaggedAccountsActions from './flagged-accounts';
+import * as contributorsActions from './contributors';
+
+export { sendInvite, getMyGithubHandle, listPendingInvites, resendInvite } from './invites';
+export {
+  removeContributorFromOrg,
+  getContributorStats,
+  exportContributorsCsv,
+} from './contributors';
+export { getFailedWebhookEvents, retryFailedWebhookEvent } from './failed-events';
+export { previewMergeXp } from './xp-preview';
+export { pingReviewers } from './ping-reviewers';
 
 export async function getMaintainerInstalls(
   ...args: Parameters<typeof settingsActions.getMaintainerInstalls>
@@ -234,92 +236,4 @@ export async function getContributorsList(
   ...args: Parameters<typeof contributorsActions.getContributorsList>
 ): ReturnType<typeof contributorsActions.getContributorsList> {
   return contributorsActions.getContributorsList(...args);
-}
-
-export async function removeContributorFromOrg(
-  ...args: Parameters<typeof contributorsActions.removeContributorFromOrg>
-): ReturnType<typeof contributorsActions.removeContributorFromOrg> {
-  return contributorsActions.removeContributorFromOrg(...args);
-}
-
-export async function getContributorStats(
-  ...args: Parameters<typeof contributorsActions.getContributorStats>
-): ReturnType<typeof contributorsActions.getContributorStats> {
-  return contributorsActions.getContributorStats(...args);
-}
-
-export async function exportContributorsCsv(
-  ...args: Parameters<typeof contributorsActions.exportContributorsCsv>
-): ReturnType<typeof contributorsActions.exportContributorsCsv> {
-  return contributorsActions.exportContributorsCsv(...args);
-}
-
-export async function getFailedWebhookEvents(
-  ...args: Parameters<typeof failedEventsActions.getFailedWebhookEvents>
-): ReturnType<typeof failedEventsActions.getFailedWebhookEvents> {
-  return failedEventsActions.getFailedWebhookEvents(...args);
-}
-
-export async function retryFailedWebhookEvent(
-  ...args: Parameters<typeof failedEventsActions.retryFailedWebhookEvent>
-): ReturnType<typeof failedEventsActions.retryFailedWebhookEvent> {
-  return failedEventsActions.retryFailedWebhookEvent(...args);
-}
-
-export async function previewMergeXp(
-  ...args: Parameters<typeof xpPreviewActions.previewMergeXp>
-): ReturnType<typeof xpPreviewActions.previewMergeXp> {
-  return xpPreviewActions.previewMergeXp(...args);
-}
-
-export async function listPendingInvites(
-  ...args: Parameters<typeof invitesActions.listPendingInvites>
-): ReturnType<typeof invitesActions.listPendingInvites> {
-  return invitesActions.listPendingInvites(...args);
-}
-
-export async function sendInvite(
-  ...args: Parameters<typeof invitesActions.sendInvite>
-): ReturnType<typeof invitesActions.sendInvite> {
-  return invitesActions.sendInvite(...args);
-}
-
-export async function resendInvite(
-  ...args: Parameters<typeof invitesActions.resendInvite>
-): ReturnType<typeof invitesActions.resendInvite> {
-  return invitesActions.resendInvite(...args);
-}
-
-export async function pingReviewers(prId: number): Promise<Result<{ commented: boolean }>> {
-  const auth = await requireMaintainerAuth();
-  if (!auth.ok) return auth;
-
-  const service = getServiceSupabase();
-  if (!service) return err('not_configured', 'Service role not configured');
-
-  // Fetch the PR row to get installation and metadata
-  const { data: pr, error: prErr } = await service
-    .from('pull_requests')
-    .select('number, repo_full_name, installation_id, url')
-    .eq('id', prId)
-    .maybeSingle();
-
-  if (prErr || !pr) return err('not_found', 'PR not found');
-
-  const [owner, repo] = pr.repo_full_name.split('/');
-  if (!owner || !repo) return err('invalid_data', 'Could not parse repo name');
-
-  try {
-    const octokit = await getInstallOctokit(pr.installation_id);
-    await octokit.rest.issues.createComment({
-      owner,
-      repo,
-      issue_number: pr.number,
-      body: '👋 **Ping from MergeShip**: This PR has been waiting for reviewer feedback for over 14 days. Could reviewers please take a look when they get a chance?',
-    });
-    return ok({ commented: true });
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : 'GitHub API error';
-    return err('github_error', msg);
-  }
 }
