@@ -11,6 +11,11 @@ import { computeTimeSaved, type TimeSavedBreakdown } from '@/lib/maintainer/time
 import { cacheGet, cacheSet } from '@/lib/cache';
 import type { MaintainerAnalyticsTrends } from '@/lib/maintainer/analytics';
 import {
+  buildDayOverDayStats,
+  buildMaintainerAnalyticsTrends,
+  emptyMaintainerDayOverDayStats,
+} from '@/lib/maintainer/analytics';
+import {
   comparePrRows,
   validateFilters,
   type MaintainerPrRow,
@@ -254,13 +259,18 @@ export async function getMaintainerAnalyticsTrends(args: {
 
   const repos = await listMaintainerRepos(user.id, args.installationId);
   if (repos.length === 0) {
-    return ok({ weekly: [], levelDistribution: [], avgReviewTimeHours: null });
+    return ok({
+      weekly: [],
+      levelDistribution: [],
+      avgReviewTimeHours: null,
+      dayOverDay: emptyMaintainerDayOverDayStats(),
+    });
   }
 
   const activeRange = args.range ?? '30d';
   const cacheKey = `maint:analytics-trends:${user.id}:${args.installationId}:${activeRange}`;
   const cached = await cacheGet<MaintainerAnalyticsTrends>(cacheKey);
-  if (cached) return ok(cached);
+  if (cached?.dayOverDay) return ok(cached);
 
   const { data, error } = await service.rpc('maintainer_analytics_trends', {
     repo_names: repos,
@@ -268,15 +278,16 @@ export async function getMaintainerAnalyticsTrends(args: {
 
   if (error) return err('query_failed', error.message);
 
+  // Fetch review stats and day-over-day deltas from timestamped PR rows.
+
   const { from, to } = rangeToDateBounds(activeRange, new Date());
 
-  // Fetch average review time from pull_requests
+  // Fetch review stats and day-over-day deltas from timestamped PR rows.
   let q = service
     .from('pull_requests')
-    .select('github_created_at, mentor_review_at')
+    .select('github_created_at, merged_at, mentor_review_at')
     .in('repo_full_name', repos)
-    .eq('mentor_verified', true)
-    .not('mentor_review_at', 'is', null)
+    .not('github_created_at', 'is', null)
     .lte('github_created_at', to.toISOString());
 
   if (activeRange !== 'all') {
@@ -284,20 +295,42 @@ export async function getMaintainerAnalyticsTrends(args: {
   }
 
   const { data: prs } = await q;
-
   let avgReviewTimeHours = null;
-  if (prs && prs.length > 0) {
+  const reviewRows = (
+    (prs ?? []) as {
+      github_created_at: string;
+      merged_at: string | null;
+      mentor_review_at: string | null;
+    }[]
+  ).filter((pr) => pr.mentor_review_at);
+
+  if (reviewRows.length > 0) {
     const totalSeconds = (
-      prs as { github_created_at: string; mentor_review_at: string | null }[]
+      reviewRows as { github_created_at: string; mentor_review_at: string | null }[]
     ).reduce((sum: number, pr) => {
       const created = new Date(pr.github_created_at).getTime();
       const reviewed = new Date(pr.mentor_review_at!).getTime();
       return sum + (reviewed - created) / 1000;
     }, 0);
-    avgReviewTimeHours = totalSeconds / prs.length / 3600;
+    avgReviewTimeHours = totalSeconds / reviewRows.length / 3600;
   }
 
-  const trends = normaliseAnalyticsTrends(data, avgReviewTimeHours);
+  const dayOverDay = buildDayOverDayStats(
+    new Date(),
+    (
+      (prs ?? []) as {
+        github_created_at: string | null;
+        merged_at: string | null;
+        mentor_review_at: string | null;
+      }[]
+    ).map((pr) => ({
+      githubCreatedAt: pr.github_created_at,
+      mergedAt: pr.merged_at,
+      mentorReviewAt: pr.mentor_review_at,
+    })),
+  );
+
+  const trends = normaliseAnalyticsTrends(data, avgReviewTimeHours, dayOverDay);
   await cacheSet(cacheKey, trends, 30 * 60);
   return ok(trends);
 }
@@ -305,9 +338,10 @@ export async function getMaintainerAnalyticsTrends(args: {
 function normaliseAnalyticsTrends(
   value: unknown,
   avgReviewTimeHours: number | null,
+  dayOverDay = emptyMaintainerDayOverDayStats(),
 ): MaintainerAnalyticsTrends {
   if (!value || typeof value !== 'object') {
-    return { weekly: [], levelDistribution: [], avgReviewTimeHours: null };
+    return { weekly: [], levelDistribution: [], avgReviewTimeHours: null, dayOverDay };
   }
 
   const data = value as Partial<MaintainerAnalyticsTrends>;
@@ -315,6 +349,7 @@ function normaliseAnalyticsTrends(
     weekly: Array.isArray(data.weekly) ? data.weekly : [],
     levelDistribution: Array.isArray(data.levelDistribution) ? data.levelDistribution : [],
     avgReviewTimeHours,
+    dayOverDay,
   };
 }
 
